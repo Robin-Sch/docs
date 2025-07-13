@@ -3,16 +3,16 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "npx astro telemetry disable; astro dev",
-    "start": "npx astro telemetry disable; astro dev",
-    "build": "npx astro telemetry disable; astro build",
-    "preview": "npx astro telemetry disable; astro preview",
-    "astro": "npx astro telemetry disable; astro"
+    "dev": "npx astro telemetry disable; npx astro dev",
+    "start": "npx astro telemetry disable; npx astro dev",
+    "build": "npx astro telemetry disable; npx astro build",
+    "preview": "npx astro telemetry disable; npx astro preview",
+    "astro": "npx astro telemetry disable; npx astro"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.34.4",
     "astro": "^5.6.1",
-    "sharp": "^0.34.2",
-    "starlight-blog": "^0.24.0"
+    "astro-mermaid": "^1.0.4",
+    "sharp": "^0.34.2"
   }
 }

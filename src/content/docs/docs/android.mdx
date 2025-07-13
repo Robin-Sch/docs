@@ -1,0 +1,85 @@
+---
+title: Android
+---
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Debloat
+
+https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation/
+
+To disable app (instead of uninstalling) you can use
+```bash
+adb shell pm disable-user --user 0 PACKAGE_NAME
+```
+
+Samsung: https://www.reddit.com/r/samsung/comments/rzhz13/ultimate_samsung_oneui_debloat_privacy/
+
+## Changing captive portal
+
+```bash
+adb shell settings put global captive_portal_http_url http://connectivitycheck.grapheneos.network/generate_204
+adb shell settings put global captive_portal_https_url https://connectivitycheck.grapheneos.network/generate_204
+
+adb shell settings list global | grep captive # captive_portal_fallback_url and captive_portal_other_fallback_urls don't seem to work
+```
+
+## Changing network time server
+
+```bash
+adb shell settings put global ntp_server pool.ntp.org
+```
+
+## Enable adb without screen
+
+<Tabs>
+  <TabItem label="Short version">
+	<Steps>
+		1. Reboot into recovery mode (requires custom recovery such as TWRP)
+		2. ```bash
+				adb shell mount data
+				adb shell echo -n 'mtp,adb' > /data/property/persist.sys.usb.config
+			```
+		3. Verify if options are not present
+			```bash
+				adb shell "grep 'persist.service.adb.enable' /system/build.prop"
+			```
+		4. If options are **not** present run below, otherwise skip
+			```bash
+				adb shell mount system
+				adb shell echo '' >> /system/build.prop
+				adb shell echo '# Enable ADB' >> /system/build.prop
+				adb shell echo 'persist.service.adb.enable=1' >> /system/build.prop 
+				adb shell echo 'persist.service.debuggable=1' >> /system/build.prop
+				adb shell echo 'persist.sys.usb.config=mtp,adb' >> /system/build.prop 
+			```
+		5. Add RSA key
+			```bash
+				adb push ~/.android/adbkey.pub /data/misc/adb/adb_keys
+			```
+	</Steps>
+  </TabItem>
+  <TabItem label="Long version">
+	<Steps>
+		1. Connect the device to PC in recovery mode
+		2. Open terminal and enter `adb devices` to check if the device is connected (in recovery mode)
+		3. Type `adb shell mount data` and `adb shell mount system` to mount the respective directories
+		4. Get the persist.sys.usb.config file using `adb pull /data/property/persist.sys.usb.config ./yes`
+		5. Open that file in a text editor and edit it to `mtp,adb` and save
+		6. Push the file back using `adb push ./yes/persist.sys.usb.config /data/property`
+		7. Get the build.prop file using `adb pull /system/build.prop ./yes`
+		8. Open in a text editor and add these lines:
+			```
+				persist.service.adb.enable=1
+				persist.service.debuggable=1
+				persist.sys.usb.config=mtp,adb
+			```
+		9. Push build.prop back using `adb push /your-dir/build.prop /system/`
+		10. In Lollipop, the ADB keys (after authorization) are saved in /data/misc/adb/adb_keys. Your private key is saved in linux: ~/.android/, windows: %USERPROFILE%.android or C:\Windows\System32\config\systemprofile.android
+			```bash
+				adb push ~/.android/adbkey.pub /data/misc/adb/adb_keys
+			```
+	</Steps>
+  </TabItem>
+</Tabs>
+
+See https://android.stackexchange.com/questions/120394/can-i-enable-usb-debugging-using-adb

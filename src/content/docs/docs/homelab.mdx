@@ -1,0 +1,102 @@
+---
+title: Homelab
+---
+
+Below is a list of useful things that I use/need
+
+## Encrypted external disk
+
+Without storing the password on the boot drive, the external encrypted disk can not be mounted after (re)booting. This means that the contents of the disk are unavailable until a manual intervention.
+
+This results in folders that are shared via samba/NFS to become unavailable and folders that are synced using [syncthing](https://syncthing.net/) to get messed up (if they are auto started).
+
+Create `~/start-samba.sh` and put the following content:
+```bash
+disk=/dev/disk/by-uuid/XXXXX # get from `sudo blkid`
+cryptname=cryptdisk
+mountpoint=/media/cryptdisk
+
+sudo cryptsetup open $disk $cryptname
+sudo mkdir -p $mountpoint
+sudo mount /dev/mapper/$cryptname $mountpoint && sudo systemct start smbd && sudo systemctl start nfs-server && sudo systemctl start syncthing@pi
+```
+
+Edit `/lib/systemd/system/syncthing\@.service` and put the following:
+```
+ConditionPathIsMountPoint=/media/cryptdisk
+```
+
+## Samba
+
+To create a new samba user:
+```bash
+sudo adduser --no-create-home --disabled-password --disabled-login robin
+sudo smbpasswd -a robin
+sudo passwd robin
+```
+
+### Mounting over tailscale
+
+Edit `/etc/fstab` and put the following:
+```
+//100.64.0.XXX/YYY /media/YYY cifs username=user,password=pass,uid=user,gid=user,x-systemd.automount,x-systemd.requires=tailscaled.service,x-systemd.idle-timeout=60,x-systemd.mount-timeout=30 0 0
+```
+
+See https://www.reddit.com/r/Tailscale/comments/1e672v7/use_these_options_if_you_want_to_mount_a_samba/
+
+## Disable screen/tty output
+
+I have connected my mini pc to one of my monitors (to watch movies/series via Kodi) that I also use for my desktop pc.
+As my mini PC is running 24/7, the monitor might pick the signal from the mini pc instead of my desktop pc, when I want to use my desktop instead (and I am too lazy to press the button on the monitor to change source).
+
+
+I first tried putting `consoleblank=60` in `/etc/default/grub` and afterwards running `update-grub`. This worked (after rebooting) but once I started Kodi it no longer goes off. So Instead I just run the script below after I am done watching:
+
+```bash
+# https://www.armadeus.org/wiki/index.php?title=Framebuffer#Sleep
+
+echo "Trying kill output after 1 min"
+echo -e '\033[9;1]' | sudo tee -a /dev/tty1
+```
+
+## Sound over HDMI (headless install)
+
+To get sound to work I used the following:
+```bash
+sudo usermod -a -G robin
+aplay -l # find out card (probably 0) and device (brute force)
+
+speaker-test --channels 2 --test wav --device hw:[card],[device]
+pactl load-module module-alsa-sink device=hw:[card],[device]
+
+pactl list sinks # find sink
+pacmd set-default-sink [sink_name/sink_index]
+
+systemctl --user enable --now pulseaudio
+```
+
+See https://askubuntu.com/a/1415109
+
+## Wireguard
+
+For multi hop see https://www.procustodibus.com/blog/2022/06/multi-hop-wireguard/#internet-gateway-as-a-spoke
+
+### Bypass UDP block
+
+Some networks block UDP packets meaning you can not connect to wireguard. You can instead connect to `serverip:53` and put the following in your server's wireguard config (where `XXX` is the port you are listening on, e.g. 51820):
+
+```
+PostUp = iptables -t nat -I PREROUTING -i eth0 -p udp -m multiport --dport 53 -j REDIRECT --to-ports XXX
+PostDown = iptables -t nat -D PREROUTING -i eth0 -p udp -m multiport --dport 53 -j REDIRECT --to-ports XXX
+```
+
+### Proxying from public into a private/hidden server
+
+For example, hosting a service on a device inside your home network but make it accessible by anyone using `serverip:xx`
+
+```
+PreUp = iptables -t nat -A PREROUTING -i eth0 -p tcp --dport xx -j DNAT --to-destination 10.10.0.200:xx
+PreDown = iptables -t nat -D PREROUTING -i eth0 -p tcp --dport xx -j DNAT --to-destination 10.10.0.200:xx
+PreUp = iptables -t nat -A POSTROUTING -o wg0 -j MASQUERADE
+PreDown = iptables -t nat -D POSTROUTING -o wg0 -j MASQUERADE
+```

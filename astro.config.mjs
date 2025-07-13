@@ -1,30 +1,26 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
-import starlightBlog from 'starlight-blog';
+import mermaid from 'astro-mermaid';
 
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://docs.robinsch.net',
 	integrations: [
+		mermaid({}),
 		starlight({
-      		plugins: [starlightBlog({
-				title: 'Guides',
-				prefix: 'guides',
-				authors: {
-					robin: {
-						name: 'Robin',
-						url: 'https://www.robinsch.net',
-						picture: 'https://robinsch.net/img/avatar.webp'
-					}
-				}
-			})],
+      		plugins: [],
 			title: 'Robin\'s Docs',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/Robin-Sch' }],
 			sidebar: [
 				{
 					label: 'Guides',
 					autogenerate: { directory: 'guides' },
+				},
+
+				{
+					label: 'Documentation',
+					autogenerate: { directory: 'docs' },
 				},
 			],
 		}),

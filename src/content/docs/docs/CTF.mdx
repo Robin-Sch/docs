@@ -1,0 +1,57 @@
+---
+title: Capture The Flags
+---
+
+## Crypto
+`dcode` is a very useful tool for decrypting various ciphers.
+`pycrptodome` is a successor of the no longer mained `pycrypto`
+
+## Forensics
+`hex editor` (like `xxd`) is useful to analyze (binary) contents of a file
+`binwalk` allows to detect which type of a file a certain file is
+`pillow` (python) analyze and edit images
+
+## Privilege Escape
+- linPEAS for automated checking
+- to check which binaries you can run with sudo `sudo -l`
+- use https://gtfobins.github.io to find instructions how to exploit this binary
+- find SUID bit set using "find / -perm -4000 -type f 2>/dev/null"
+
+## Web
+`Burp Suite` GUI tool to execute/modify HTTP requests
+`requests` (python) sending requests in any format
+`nikto` (https://github.com/sullo/nikto) for web server scanner
+`bbot` (https://github.com/blacklanternsecurity/bbot) for web server scanner
+
+## everse Engineering
+`IDA Free` (statically) analyze binaries
+`Ghidra` (statically) analyze programs
+
+## Cracking hashes
+Find hash type using https://hashcat.net/wiki/doku.php?id=example_hashes
+Identify hashcat module for the hash type
+`hashcat -m [module] hashes.txt wordlist.txt`
+Or `hashcat -m [module] -a 0 hashes.txt wordlist.txt -o out.txt` (`-a 0` indicates we have a wordlist of potential passwords)
+
+Or: https://crackstation.net/, https://hashes.com
+
+## Pwn
+`x64dbg` analyze a program at runtime
+`pwndbg` is a `gdb` plugin that makes debugging suck less
+`pwntools` (python imported via `pwn`) wide variety of tools for dealing with binaries. Also allows to connect to a TCP socket (aka netcat connection). [documentation](https://docs.pwntools.com/en/stable/intro.html#making-connections) and [cheatsheet](https://xavierholt.github.io/cheatsheets/pwntools.html)
+Use `https://shell-storm.org/shellcode/files/shellcode-811.html` or `https://shell-storm.org/shellcode/files/shellcode-606.html` for shell codes (also see diff ones from that website)
+
+```
+The binary operates with both a real user ID (UID) and an effective user ID (EUID). Certain shells, when spawned from the binary, will drop their privileges if they detect a mismatch between the UID and EUID. This behavior is a security measure to prevent unintended privilege escalation. To maintain elevated privileges in such cases, consider using a shell which does not automatically do this or pass an argument that prevents the shell from doing this.
+```
+
+## CVE's
+Find CVE's on https://www.exploit-db.com/
+
+## Other
+`nmap -O ip` simple scan
+`nmap -sT ip` simple TCP scan
+`nmap -sU ip` simple UDP scan
+`nmap --top-ports 1000 ip` scan top used ports
+`nmap -n -PN -sT -sU -p- ip` scan for all tcp and udp ports
+`Responder` for poisoning (faking "auth server")

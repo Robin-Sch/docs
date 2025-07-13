@@ -1,0 +1,52 @@
+---
+title: Remote Access
+prev: Setup
+next: Reverse Proxy
+---
+
+You probably also want access to your homelab when you are at a different place than your home (such as at work, at a friends place or when travelling). You can of course open port 80/443 on your home router, but you might want to prefer a VPN such as [wireguard](https://www.wireguard.com/) or [tailscale](https://tailscale.com/).
+
+## Wireguard
+For wireguard you need a central server that is online 24/7. Then your phone, laptop and other devices connect to that server. If for example your phone wants to communicate with your laptop, then all traffic goes from your phone to the server to your laptop and the other way around. This will impact the latency if you server is not located closeby. In addition, if your server goes down then you can no longer connect to your devices remotely. Also note that this server needs to be accessible when not in your home network, so you probably want this on a vps or something like that.
+
+## Tailscale
+Tailscale on the other hand is a mesh VPN. You can use the official tailscale control server which is used for authentication purposes and setting up connections. Now, if your phone wants to communicate with your laptop it can directly do so (if your network configuration allows for it) without having to go through a centralised server. And if the tailscale server goes down, then your devices can still communicate :)
+
+## Setup
+To set up tailscale, you can follow their guide [here](https://tailscale.com/kb/1017/install), which pretty much covers everything needed.
+
+## Logs
+If you run
+```bash
+sudo journalctl -xe
+```
+
+You can see that tailscale is very verbose logging wise. I prefer to store tailscale logs in memory instead of on disk (to reduce disk usage) and/or disable logs completely.
+
+### In memory
+First edit the file `/usr/lib/systemd/system/tailscaled.service` and add the following contents:
+```
+[Service]
+... # the other stuff that is already under [Service]
+LogNamespace=noisy
+```
+
+After that, run `cp /etc/systemd/journald.conf /etc/systemd/journald@noisy.conf` and change the following:
+```
+Storage=volatile
+RuntimeMaxUse=10M
+```
+
+Lastly, run `sudo systemctl daemon-reload` and now your logs will be stored in memory (volatile) instead of on your disk!
+
+More info: https://unix.stackexchange.com/questions/696781/turn-off-logging-to-journald-for-specified-systemd-service
+
+### Disable
+To disable the logs, edit `/etc/default/tailscaled` and change the following:
+
+```bash
+FLAGS="--no-logs-no-support"
+TS_NO_LOGS_NO_SUPPORT=true
+```
+
+Then restart tailscale use `sudo systemctl restart tailscaled`

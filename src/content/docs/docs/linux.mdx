@@ -1,0 +1,180 @@
+---
+title: Linux
+---
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Battery/power savings
+
+You probably want either [auto-cpufreq](https://github.com/AdnanHodzic/auto-cpufreq) or TLP (but not both)
+
+<Tabs>
+	<TabItem label="auto-cpufreq">
+		```bash
+		yay -S auto-cpufreq
+		systemctl enable --now auto-cpufreq 
+		```
+	</TabItem>
+	<TabItem label="tlp">
+		```bash
+		sudo pacman -S tlp
+		sudo systemctl --now enable tlp
+		```
+	</TabItem>
+</Tabs>
+
+Create `/etc/modprobe.d/audio_powersave.conf` and put:
+```
+options snd_hda_intel power_save=1
+```
+
+Create `/etc/sysctl.d/dirty.conf` and change writeback time:
+```
+vm.dirty_writeback_centisecs = 6000
+```
+
+Create `/etc/sysctl.d/laptop.conf` and set laptop mode:
+```
+vm.laptop_mode = 5
+```
+
+Create `/etc/udev/rules.d/81-wifi-powersave.rules` and disable Wake-on-LAN:
+```
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="wl*", RUN+="/usr/bin/iw dev $name set power_save on"
+```
+
+### Auto suspend when lid close
+Edit `/etc/systemd/logind.conf` and put:
+```
+HandleLidSwitch=suspend
+HandleLidSwitchExternalPower=suspend
+```
+
+See https://wiki.archlinux.org/title/Power_management#ACPI_events
+
+### Auto suspend when low battery
+Create `/etc/udev/rules.d/99-lowbat.rules` and put:
+```
+# Suspend the system when battery level drops to 5% or lower
+SUBSYSTEM=="power_supply", ATTR{status}=="Discharging", ATTR{capacity}=="[0-5]", RUN+="/usr/bin/systemctl suspend"
+```
+
+Get attributes from `sudo udevadm info -q property -a --path /sys/class/power_supply/BAT0` and refresh rules with `sudo udevadm control --reload-rules; sudo udevadm trigger`
+
+See https://wiki.archlinux.org/title/laptop#Hibernate_on_low_battery_level
+
+### Disabling dGPU
+Create `/etc/modprobe.d/blacklist-nouveau.conf` and put:
+```
+blacklist nouveau
+options nouveau modeset=0
+```
+
+Then create `/etc/udev/rules.d/00-remove-nvidia.rules` and put:
+```
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c0330", ATTR{power/control}="auto", ATTR{remove}="1"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c8000", ATTR{power/control}="auto", ATTR{remove}="1"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", ATTR{power/control}="auto", ATTR{remove}="1"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", ATTR{power/control}="auto", ATTR{remove}="1"
+```
+
+## Nvidia GPU
+
+```bash
+sudo pacman -S nvidia # or nvidia-open
+```
+
+Change `/etc/default/grub` and set `nvidia_drm.modeset=1 nvidia_drm.fbdev=1` under `GRUB_CMDLINE_LINUX_DEFAULT`
+
+### Hardware acceleration
+```bash
+sudo pacman -S libva-nvidia-driver nvtop
+```
+
+Then set the following environment variables:
+```
+MOZ_DISABLE_RDD_SANDBOX=1
+LIBVA_DRIVER_NAME=nvidia
+__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json
+```
+
+#### Firefox
+For firefox set the following in `about:config`:
+- media.ffmpeg.vaapi.enabled=true
+- media.hardware-video-decoding.force-enabled=true
+- media.rdd-ffmpeg.enabled=true
+- media.av1.enabled=false
+- gfx.x11-egl.force-enabled=true
+- widget.dmabuf.force-enabled=true
+
+#### chromium
+For chromium based such as google chrome, brave and more set the following flags:
+```
+--enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiOnNvidiaGPUs
+```
+
+#### Testing
+Open for example https://www.youtube.com/watch?v=KLuTLF3x9sA in your browser (make sure to select 4k). Then at the top of `nvtop` but to the right of the small MEM bar there should appear a DEC bar which indicates it's working.
+### Suspend issues
+```bash
+sudo systemctl enable nvidia-suspend
+sudo systemctl enable nvidia-hibernate
+sudo systemctl enable nvidia-resume
+```
+
+## Disk/storage savings
+
+### Paccache
+```bash
+	sudo pacman -S pacman-contrib
+	sudo systemctl enable paccache.timer
+```
+
+### Set max journalctl logs
+
+Edit `/etc/systemd/journald.conf` and put:
+```
+	SystemMaxUse=100M 
+```
+
+
+
+
+## Pipewire instead of pulseaudio
+
+```bash
+sudo pacman -S pipewire pipewire-pulse wireplumber bluez bluez-utils # might also need sof-firmware
+systemctl --user --now disable pulseaudio.service pulseaudio.socket
+systemctl --user --now enable pipewire pipewire-pulse wireplumber
+```
+
+## Time server
+
+```bash
+sudo pacman -S chrony
+sudo systemctl enable --now chronyd
+```
+
+To change which server to use, edit `/etc/chrony.conf` and put
+```
+server ntp1.example.net iburst
+server ntp2.example.net iburst
+```
+
+## Make AppImages show up properly
+
+Create a file called `xxx.desktop` in `~/.local/share/applications`:
+```
+[Desktop Entry]
+Type=Application
+Name=xxx
+Comment=xxx
+Exec=/path/to/xxx.AppImage
+Terminal=false
+```
+
+Note that for VSCode/VSCodium it needed
+```
+Exec=env XDG_DATA_DIRS=/usr/local/share:/usr/share ~/Desktop/VSCodium.AppImage
+```
+
+#

@@ -1,0 +1,43 @@
+---
+title: Raspberry
+---
+
+Here are various commands/tools I use on my raspberry pi
+
+## Static IP
+
+Edit `/etc/dhcpcd.conf` and put the following content:
+
+```
+interface eth0
+static ip_address=192.168.1.100/24
+static routers=192.168.1.1
+static domain_name_servers=1.1.1.1
+```
+
+## Turn of lights
+
+Edit `/boot/config.txt` and put the following content:
+
+```
+dtparam=act_led_trigger=none
+dtparam=pwr_led_trigger=none
+```
+
+## Auto start browser on boot
+
+Edit `~/.bashrc` and put the following content at the bottom:
+
+```bash
+if [[ -z $DISPLAY ]] && [[ $(tty) = /dev/tty* ]]; then
+	startx /usr/bin/chromium https://docs.robinsch.net # --kiosk
+fi
+```
+
+Use --kiosk for a more "full screen" experience
+
+## Monitor CPU temperature
+
+```bash
+watch -n 1 vcgencmd measure_temp
+```
