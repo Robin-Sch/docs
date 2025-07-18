@@ -14,14 +14,14 @@ docker plugin install grafana/loki-docker-driver:3.3.2-arm64 --alias loki
 Edit `/etc/docker/daemon.json` and add the following (make sure it's valid JSON):
 ```json
 {
-	"log-driver": "loki",
+    "log-driver": "loki",
     "log-opts": {
         "loki-url": "http://localhost:3100/loki/api/v1/push",
         "loki-batch-size": "400",
-		"loki-retries": "2",
-		"loki-max-backoff": "800ms",
-		"loki-timeout": "1s",
-		"keep-file": "true"
+        "loki-retries": "2",
+        "loki-max-backoff": "800ms",
+        "loki-timeout": "1s",
+        "keep-file": "true"
     }
 }
 ```
@@ -32,12 +32,28 @@ To get a bigger range of subnets I usually set the following in `/etc/docker/dae
 
 ```json
 {
-	"ipv6": true,
+    "ipv6": true,
     "fixed-cidr-v6": "fd0a:9093:73cb:8000::/64",
     "default-address-pools":
     [
         { "base": "100.128.0.0/16", "size": 24 },
-	    { "base": "fd0a:9093:73cb:8000::/56", "size": 64 }
+        { "base": "fd0a:9093:73cb:8000::/56", "size": 64 }
     ]
 }
+```
+
+## Blocking IP
+
+To block a particular IP from accessing docker containers, use the following command:
+
+```bash
+sudo iptables -I DOCKER-USER 1 --src a.b.c.d -j DROP
+```
+
+## Get docker subnets
+
+Use the following command to print all the docker subnets in use:
+
+```bash
+docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -
 ```
