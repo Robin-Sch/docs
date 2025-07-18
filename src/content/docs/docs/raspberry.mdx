@@ -24,6 +24,13 @@ dtparam=act_led_trigger=none
 dtparam=pwr_led_trigger=none
 ```
 
+Or
+
+```bash
+sudo bash -c "echo 0 > /sys/class/leds/led1/brightness"
+sudo bash -c "echo 0 > /sys/class/leds/led0/brightness"
+```
+
 ## Auto start browser on boot
 
 Edit `~/.bashrc` and put the following content at the bottom:
@@ -40,4 +47,14 @@ Use --kiosk for a more "full screen" experience
 
 ```bash
 watch -n 1 vcgencmd measure_temp
+```
+
+## Disable swap
+
+```bash
+sudo dphys-swapfile swapoff
+sudo dphys-swapfile uninstall
+sudo update-rc.d dphys-swapfile remove
+sudo apt purge dphys-swapfile -y
+sudo sysctl -w vm.swappiness=0
 ```

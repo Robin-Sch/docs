@@ -6,6 +6,58 @@ title: Capture The Flags
 `dcode` is a very useful tool for decrypting various ciphers.
 `pycrptodome` is a successor of the no longer mained `pycrypto`
 
+
+### DH
+
+Finding key:
+
+```python
+def brute_force_private_key(g, p, public_key):
+    for x in range(p):
+        if pow(g, x, p) == public_key:
+            return x
+    return None
+
+# Parameters
+p = 6123584726269
+g = 12
+A = 5433773864651
+
+# Brute force private key 'a'
+a = brute_force_private_key(g, p, A)
+if a is not None:
+    print(f"Private key a: {a}")
+else:
+    print("Private key not found.")
+```
+
+Finding secret:
+
+```python
+def brute_force_private_key(g, p, public_key):
+    for x in range(p):
+        if pow(g, x, p) == public_key:
+            return x
+    return None
+
+# Parameters
+g = 577
+p = 12611
+A = 6030
+B = 8354
+
+# Brute force private key 'a'
+a = brute_force_private_key(g, p, A)
+if a is not None:
+    print(f"Private key a: {a}")
+
+    # Compute the shared secret
+    shared_secret = pow(B, a, p)
+    print(f"Shared secret: {shared_secret}")
+else:
+    print("Private key not found.")
+```
+
 ## Forensics
 `hex editor` (like `xxd`) is useful to analyze (binary) contents of a file
 `binwalk` allows to detect which type of a file a certain file is
@@ -23,7 +75,18 @@ title: Capture The Flags
 `nikto` (https://github.com/sullo/nikto) for web server scanner
 `bbot` (https://github.com/blacklanternsecurity/bbot) for web server scanner
 
-## everse Engineering
+### Finding hidden files/directories
+
+```bash
+docker run --rm hypnza/dirbuster -u https://website.com
+```
+
+Or with a [wordlist](https://github.com/xmendez/wfuzz/tree/master/wordlist):
+```bash
+docker run -v $(pwd)/wordlist:/wordlist/ -it ghcr.io/xmendez/wfuzz wfuzz -c -z file,/wordlist/list.txt --hc 404 https://website.com/FUZZ
+```
+
+## Reverse Engineering
 `IDA Free` (statically) analyze binaries
 `Ghidra` (statically) analyze programs
 

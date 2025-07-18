@@ -1,0 +1,191 @@
+---
+title: Scripts
+---
+
+Useful scripts for various things
+
+## Find file by content
+
+```bash
+grep --color=auto -rnw . -ie "$content" 2> /dev/null
+```
+
+## Find file by name
+
+```bash
+grep . -name "$name"
+```
+
+Or with zsh:
+```zsh
+ls -ld -- **/$name
+```
+
+## Fix filesystem permissions
+
+```bash
+find . -type d -exec chmod 755 {} \;
+find . -type f -exec chmod 644 {} \;
+```
+
+## Checking port
+
+Locally:
+```bash
+sudo ss -tunlp | grep "$port"
+```
+
+Remotely:
+```bash
+nc -zv $ip $port
+```
+
+## Compare directories
+
+```bash
+diff -qr ./first ./second
+```
+
+Or via [hash](https://unix.stackexchange.com/questions/702311/looking-to-compare-two-different-directories-using-the-hash-values-of-files-with):
+```bash
+first="dir1"
+second="dir2"
+
+find $first -type f -exec cat '{}' + | sha256sum > /tmp/first.hash
+find $second -type f -exec cat '{}' + | sha256sum > /tmp/second.hash
+diff -q /tmp/first.hash /tmp/second.hash
+```
+
+## Mass rename
+
+Move with increasing counter
+```bash
+n=1; for f in *.pdf; do mv "$f" "201718-$((n++)).pdf"; done
+```
+
+Move with increasing counter and original filename
+```bash
+n=1; for f in *.pdf; do mv "$f" "$f-$((n++)).pdf"; done
+```
+
+## Random string
+
+Of length incrementing:
+
+```bash
+i=0
+while [ $i -ne 100 ]
+do
+    i=$(($i+1))
+    random="$(tr -dc a-zA-Z0-9 </dev/urandom | head -c $i)"
+    echo "$random"
+done
+```
+
+Of fixed length:
+
+```bash
+while true
+do
+    random="$(tr -dc a-zA-Z0-9 </dev/urandom | head -c 16)"
+    echo "$random"
+done
+```
+
+## Speedtest
+
+On the server run:
+```bash
+iperf -s
+```
+
+On the client run:
+```bash
+iperf -c x.x.x.x
+```
+
+## Swap
+
+```bash
+size="5G"
+
+sudo fallocate -l "$size" /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+sudo sh -c "echo '/swapfile none swap sw 0 0' >> /etc/fstab"
+
+# Consider changing swapiness:
+# sudo sh -c "echo 'vm.swappiness = 10' >> /etc/sysctl.conf"
+# sudo sysctl -p
+```
+
+### Zswap
+
+```bash
+echo 'lz4' | sudo tee -a /etc/initramfs-tools/modules
+echo 'lz4_compress' | sudo tee -a /etc/initramfs-tools/modules
+echo 'z3fold' | sudo tee -a /etc/initramfs-tools/modules
+
+echo 'Add "zswap.enabled=1" to GRUB_CMDLINE_LINUX in /etc/default/grub'
+echo '(Maybe: Add "swap.compressor=lz4 zswap.max_pool_percent=50 zswap.zpool=z3fold" to GRUB_CMDLINE_LINUX)'
+echo 'After that, run "sudo update-grub"'
+```
+
+## Self-signed cert
+
+Create `domains.ext` with contents:
+```
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = somedomain.lan
+DNS.2 = someotherdomain.lan
+IP.1 = 127.0.0.1
+IP.2 = 192.168.0.1
+```
+
+(Make sure to modify domain name/ips if needed)
+
+And then run
+
+```bash
+sudo openssl genpkey -algorithm RSA -aes128 -out private-ca.key -outform PEM -pkeyopt rsa_keygen_bits:2048
+sudo openssl req -x509 -new -nodes -sha256 -days 3650 -key private-ca.key -out self-signed-ca-cert.crt
+sudo openssl genpkey -algorithm RSA -out localhost.key -outform PEM -pkeyopt rsa_keygen_bits:2048
+sudo openssl req -new -key localhost.key -out localhost.csr
+```
+
+If you want to change `domains.ext` at a later point:
+
+```bash
+sudo openssl x509 -req -in localhost.csr -CA self-signed-ca-cert.crt -CAkey private-ca.key -CAcreateserial -out localhost.crt -days 365 -sha256 -extfile domains.ext
+```
+
+To install the self-signed cert:
+
+```bash
+sudo mkdir /usr/local/share/ca-certificates/extra
+sudo cp ./self-signed-ca-cert.crt /usr/local/share/ca-certificates/extra/self-signed-ca-cert.crt
+sudo update-ca-certificates
+```
+
+## Encrypt/decrypt files
+
+Encrypt:
+
+```bash
+dir=/mnt/yes
+tar -czf - -C $dir Encrypted | gpg --symmetric --cipher-algo aes256 -o $dir/Encrypted.tar.gz.gpg
+rm $dir/Encrypted -rf
+```
+
+Decrypt:
+
+```bash
+dir=/mnt/yes
+gpg -d $dir/Encrypted.tar.gz.gpg | tar xz -C $dir/ &&
+rm $dir/Encrypted.tar.gz.gpg
+```
