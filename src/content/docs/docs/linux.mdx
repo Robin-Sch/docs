@@ -177,4 +177,18 @@ Note that for VSCode/VSCodium it needed
 Exec=env XDG_DATA_DIRS=/usr/local/share:/usr/share ~/Desktop/VSCodium.AppImage
 ```
 
-#
+## Get shell access without recovery/chroot
+
+As long as grub is working, you can edit the entry and add `init=/bin/bash` at the end of the line starting with `linux`.
+
+Then, you can make the root filesystem read-write (intead of read only) using `mount -o remount,rw /`.
+
+After that you can setup networking (if needed), using either `dhclient` or manually:
+```
+ip a add IP/24 dev eth0
+ip link set eth0 up
+ip route add default via GATEWAY
+echo "nameserver 1.1.1.1" > /etc/resolv.conf
+```
+
+Make sure to replace `IP` with the IP of your device and GATEWAY with the IP of your gateway
