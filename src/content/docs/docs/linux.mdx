@@ -19,6 +19,19 @@ You probably want either [auto-cpufreq](https://github.com/AdnanHodzic/auto-cpuf
 		sudo pacman -S tlp
 		sudo systemctl --now enable tlp
 		```
+
+		To change your configuration, edit `/etc/tlp.conf` and change everything needed. I usually change:
+
+		```
+			TLP_DEFAULT_MODE=BAT
+			TLP_PERSISTENT_DEFAULT=1
+			USB_AUTOSUSPEND=0
+			CPU_SCALING_GOVERNOR_ON_{AC,BAT}
+			CPU_ENERGY_PERF_POLICY_ON_{AC,BAT}
+			CPU_{MIN,MAX}_PERF_ON_{AC,BAT}
+			CPU_BOOST_ON_{AC,BAT}
+			PLATFORM_PROFILE_ON_{AC,BAT}
+		```
 	</TabItem>
 </Tabs>
 
