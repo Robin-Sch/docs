@@ -190,6 +190,53 @@ Note that for VSCode/VSCodium it needed
 Exec=env XDG_DATA_DIRS=/usr/local/share:/usr/share ~/Desktop/VSCodium.AppImage
 ```
 
+## Increase /boot partition
+
+Make sure to backup your data first, this might wipe your whole disk by accident!
+
+Partition layout before:
+- /dev/sda1: /boot
+- /dev/sda2: /
+
+```bash
+cryptsetup luksOpen root /dev/sda2
+btrfs check /dev/mapper/root
+mount /dev/mapper/root /mnt
+btrfs filesystem resize -1G /mnt
+umount /mnt
+parted /dev/sda
+# resizepart 2 -1G
+# quit
+cryptsetup resize root
+cryptsetup check root
+umount /mnt
+cryptsetup close root
+fdisk /dev/sda
+# n
+# 3
+# <enter>
+# <enter>
+# t
+# 3
+# 1
+# write
+mkfs.fat -F32 /dev/sda3
+cryptsetup luksOpen root /dev/sda2
+mount /dev/mapper/root /mnt
+mount /dev/sda3 /mnt/boot
+mkdir /mnt/boot-old
+mount /dev/sda1 /mnt/boot-old
+cp -a /mnt/boot-old/* /mnt/boot/
+blkid /dev/sda3
+nano /mnt/etc/fstab
+# update UUID
+arch-chroot /mnt
+grub stuff
+exit
+umount /mnt/boot-old /mnt/boot /mnt
+cryptsetup close root
+```
+
 ## Get shell access without recovery/chroot
 
 As long as grub is working, you can edit the entry and add `init=/bin/bash` at the end of the line starting with `linux`.
