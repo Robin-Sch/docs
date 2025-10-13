@@ -17,11 +17,13 @@ export default defineConfig({
 					label: 'Guides',
 					autogenerate: { directory: 'guides' },
 				},
-
 				{
-					label: 'Documentation',
-					autogenerate: { directory: 'docs' },
+					label: 'Linux',
+					autogenerate: { directory: 'linux' },
 				},
+				{ slug: 'android' },
+				{ slug: 'ctf' },
+				{ slug: 'git' },
 			],
 		}),
 	],

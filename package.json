@@ -7,12 +7,13 @@
     "start": "npx astro telemetry disable; npx astro dev",
     "build": "npx astro telemetry disable; npx astro build",
     "preview": "npx astro telemetry disable; npx astro preview",
-    "astro": "npx astro telemetry disable; npx astro"
+    "astro": "npx astro telemetry disable; npx astro",
+    "update-deps": "npx npm-check-updates -u && npm install && npm audit fix"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.35.2",
-    "astro": "^5.13.3",
-    "astro-mermaid": "^1.0.4",
-    "sharp": "^0.34.3"
+    "@astrojs/starlight": "^0.36.0",
+    "astro": "^5.14.4",
+    "astro-mermaid": "^1.1.0",
+    "sharp": "^0.34.4"
   }
 }
