@@ -57,3 +57,30 @@ Use the following command to print all the docker subnets in use:
 ```bash
 docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -
 ```
+
+## Updating postgresql
+
+```bash
+# Make sure only postgres database is running and service is down
+docker compose down
+docker compose up -d SERVICE-postgres
+
+# Export database
+docker exec -it SERVICE-postgres pg_dumpall -U SERVICE > dump.sql
+cat dump.sql # verify dump is not empty
+
+# Change version (for upgrade to >=18 make sure volume is set to /var/lib/postgresql, WITHOUT data)
+nvim compose.yml
+
+# Delete old/previous database (volume)
+docker compose down
+docker volume rm SERVICE_postgres_data
+docker compose up -d SERVICE-postgres
+
+# Import database
+docker exec -i SERVICE-postgres psql -U SERVICE < dump.sql
+
+# Start service and cleanup
+docker compose up -d
+# if works correctly: rm dump.sql
+```
