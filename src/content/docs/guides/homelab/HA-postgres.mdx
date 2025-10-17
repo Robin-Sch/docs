@@ -1,0 +1,343 @@
+---
+title: High Availability Postgres cluster
+---
+
+import { Aside, Code } from '@astrojs/starlight/components';
+
+After the I don't know how many time my server went down (and took some very important service I was running on it with it), I looked into making this service "high available".
+
+The main issue was the postgres database. I wanted to keep this on my own server and not rely on an external provider, so somehow I needed to keep multiple postgres instances in sync with each other.
+
+<Aside type="caution">High Availability is not the same as Load Balancing, the following setup will keep EXACTLY one service running at all times. This is needed for for example Discord or Telegram bots, where running 2 instances would conflict with each other.</Aside>
+
+After doing a bit of digging on the internet and having a good chat with chatGPT, I came up with the following setup that will keep the service accessible for as long as one of the nodes is online.
+
+## Setup
+
+This setup uses different containers:
+- Patroni: runs the postgres database and handles syncing
+- Etcd: determine who is the "primary" and pick a new primary when the original one goes down
+
+If you have `n` servers, theoretically you can handle `n-1` servers going down. However, because the etcd instance on the remaining server has no other etcd instance it can talk to, it will not promote itsself to leader (it can't decide whether for example the networking on this server died or if the other server died). Therefore, in practice, this will allow `n-2` servers to go down before impacting service accessibility.
+
+For this guide we will continue with 3 devices. Obviously, all devices need to communicate with each other, so I recommend using something like wireguard or tailscale or a different private VPN solution.
+- Host1: 10.0.0.1 (hostname: HOSTNAME1)
+- Host2: 10.0.0.2 (hostname: HOSTNAME2)
+- Host3: 10.0.0.3 (hostname: HOSTNAME3)
+
+<Aside type="danger">Running patroni (and etcd) on a publicly accessible port is not recommended. This allows people to mess or even overtake your cluster, which could result in data theft/loss. Make sure to setup a firewall properly and/or use a private network</Aside>
+
+## Docker config
+
+For each host, create the following files. Make sure you change the IP and HOSTNAME according to the host this file is on.
+
+<Code
+  lang="yml"
+  title="compose.yml"
+  mark={["patroni:5432","10.0.0.","HOSTNAME"]}
+  code={`
+services:
+    SERVICE:
+      image: SERVICE # replace with your service, add other config if needed
+      ...
+      environment:
+        - POSTGRES_URL=postgres://user:\${POSTGRES_PASSWORD}@patroni:5432/database
+
+    patroni:
+      build:
+        context: .
+      ...
+      environment:
+        - PATRONI_ETCD3_USERNAME=user
+        - PATRONI_ETCD3_PASSWORD=\${ETCD_PASSWORD}
+        - PATRONI_CONFIG_FILE=/etc/patroni/patroni.yml
+        - PATRONI_REPLICATION_USERNAME=replicator
+        - PATRONI_REPLICATION_PASSWORD=\${POSTGRES_REPLICATOR_PASSWORD}
+        - PATRONI_SUPERUSER_USERNAME=user
+        - PATRONI_SUPERUSER_PASSWORD=\${POSTGRES_PASSWORD}
+      volumes:
+        - ./patroni.yml:/etc/patroni/patroni.yml
+        - ./certs:/certs:ro
+        - postgres_data:/var/lib/postgresql
+      ports:
+        - 10.0.0.1:5432:5432
+        - 10.0.0.1:8008:8008
+
+    etcd:
+      image: quay.io/coreos/etcd:v3.6.5
+      ...
+      environment:
+        - ETCD_CERT_FILE=/certs/localhost.crt
+        - ETCD_KEY_FILE=/certs/localhost.key
+        - ETCD_TRUSTED_CA_FILE=/certs/self-signed-ca-cert.crt
+        - ETCD_CLIENT_CERT_AUTH=true
+        - ETCD_PEER_CERT_FILE=/certs/localhost.crt
+        - ETCD_PEER_KEY_FILE=/certs/localhost.key
+        - ETCD_PEER_TRUSTED_CA_FILE=/certs/self-signed-ca-cert.crt
+        - ETCD_PEER_CLIENT_CERT_AUTH=true
+        - ETCD_NAME=HOSTNAME1
+        - ETCD_DATA_DIR=/etcd-data
+        - ETCD_INITIAL_CLUSTER_TOKEN=pgcluster
+        - ETCD_LISTEN_PEER_URLS=https://0.0.0.0:2380
+        - ETCD_LISTEN_CLIENT_URLS=https://0.0.0.0:2379
+        - ETCD_INITIAL_ADVERTISE_PEER_URLS=https://10.0.0.1:2380
+        - ETCD_ADVERTISE_CLIENT_URLS=https://10.0.0.1:2379
+        - ETCD_INITIAL_CLUSTER=HOSTNAME1=https://10.0.0.1:2380,HOSTNAME2=https://10.0.0.2:2380,HOSTNAME3=https://10.0.0.3:2380
+        - ETCD_INITIAL_CLUSTER_STATE=new
+        - ETCD_AUTH_TOKEN=simple
+      ports:
+        - 10.0.0.1:2379:2379
+        - 10.0.0.1:2380:2380
+      volumes:
+        - ./certs:/certs:ro
+        - etcd_data:/etcd-data
+
+    volumes:
+      postgres_data:
+      etcd_data:
+  `}
+/>
+
+
+<Code
+  lang="dockerfile"
+  title="Dockerfile"
+  code={`FROM postgres:18.0-alpine
+
+# Install Python3, pip, venv, and psycopg2 dependencies
+RUN apk add --no-cache python3 py3-pip python3-dev postgresql-dev gcc musl-dev linux-headers
+
+# Create data directory with proper permissions
+RUN mkdir -p /var/lib/postgresql/18 && \\
+    chown -R postgres:postgres /var/lib/postgresql && \\
+    chmod -R 700 /var/lib/postgresql
+
+# Create home directory for postgres user and set ownership
+RUN mkdir -p /home/postgres && chown -R postgres:postgres /home/postgres
+
+WORKDIR /home/postgres
+USER postgres
+
+# Create a virtual environment for Patroni
+RUN python3 -m venv /home/postgres/patroni && \
+    /home/postgres/patroni/bin/pip install --no-cache-dir patroni[etcd] psycopg2-binary
+
+# Add virtualenv binaries to PATH
+ENV PATH="/home/postgres/patroni/bin:$PATH"
+
+# Expose Patroni REST API and PostgreSQL ports
+EXPOSE 8008 5432
+
+# Patroni runs Postgres for us
+ENTRYPOINT ["patroni", "/etc/patroni/patroni.yml"]
+  `}
+/>
+
+<Code
+  lang="yml"
+  title="patroni.yml"
+  mark={["10.0.0.","HOSTNAME"]}
+  code={`
+scope: pgcluster
+namespace: /service/
+name: HOSTNAME1 
+
+restapi:
+    listen: 0.0.0.0:8008
+    connect_address: 10.0.0.1:8008
+
+etcd3:
+    host: etcd:2379
+    protocol: https
+    cacert: /certs/self-signed-ca-cert.crt
+    cert: /certs/localhost.crt
+    key: /certs/localhost.key
+
+bootstrap:
+    dcs:
+      ttl: 30
+      loop_wait: 10
+      retry_timeout: 10
+      maximum_lag_on_failover: 1048576
+      postgresql:
+        use_pg_rewind: true
+        pg_hba:
+          - host all user 127.0.0.1/32 scram-sha-256
+          - host all user 10.0.0.0/24 scram-sha-256
+          - host replication replicator 127.0.0.1/32 scram-sha-256
+          - host replication replicator 10.0.0.0/24 scram-sha-256
+        parameters:
+          password_encryption: 'scram-sha-256'
+          wal_level: replica
+          hot_standby: "on"
+          wal_keep_size: 512MB
+          max_wal_senders: 10
+          max_replication_slots: 10
+          shared_buffers: 256MB
+    initdb:
+      - auth: scram-sha-256
+      - encoding: UTF8
+      - data-checksums
+
+postgresql:
+    listen: 0.0.0.0:5432
+    connect_address: 10.0.0.1:5432
+    data_dir: /var/lib/postgresql/18
+    bin_dir: /usr/local/bin
+    pg_hba:
+      - host database user 172.17.0.0/16 scram-sha-256 # for docker containers, change docker subnet if needed
+      - host all user 127.0.0.1/32 scram-sha-256
+      - host all user 10.0.0.0/24 scram-sha-256
+      - host replication replicator 127.0.0.1/32 scram-sha-256
+      - host replication replicator 10.0.0.0/24 scram-sha-256
+    parameters:
+      archive_mode: "off"
+      max_connections: 100
+      shared_buffers: "256MB"
+      wal_keep_size: 512MB
+  `}
+/>
+
+## Certificates
+
+We also need to generate (self-signed) certificates to make sure the etcd nodes can talk over https instead of http (if you are fine with http, then remove all the certificate and https stuff) and authorize each other.
+
+
+On your local PC or on one of the hosts, create a new directory (name does not matter) and `cd` into it. After that, create the following files:
+
+<Code
+  lang="txt"
+  title="host1.txt"
+  mark={["10.0.0."]}
+  code={`
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = etcd
+IP.1 = 10.0.0.1
+  `}
+/>
+<Code
+  lang="txt"
+  title="host2.txt"
+  mark={["10.0.0."]}
+  code={`
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = etcd
+IP.1 = 10.0.0.2
+  `}
+/>
+<Code
+  lang="txt"
+  title="host3.txt"
+  mark={["10.0.0."]}
+  code={`
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = etcd
+IP.1 = 10.0.0.3
+  `}
+/>
+
+And run the following script:
+
+```bash
+# Generate CA
+openssl genpkey -algorithm RSA -out private-ca.key -outform PEM -pkeyopt rsa_keygen_bits:2048
+openssl req -x509 -new -nodes -sha256 -days 3650 -key private-ca.key -out self-signed-ca-cert.crt
+
+# Create host1 key
+mkdir host1
+openssl genpkey -algorithm RSA -out ./host1/localhost.key -outform PEM -pkeyopt rsa_keygen_bits:2048
+openssl req -new -key ./host1/localhost.key -out host1.csr
+openssl x509 -req -in host1.csr -CA self-signed-ca-cert.crt -CAkey private-ca.key -CAcreateserial -out ./host1/localhost.crt -days 365 -sha256 -extfile host1.txt
+
+# Create host2 key
+mkdir host2
+openssl genpkey -algorithm RSA -out ./host2/localhost.key -outform PEM -pkeyopt rsa_keygen_bits:2048
+openssl req -new -key ./host2/localhost.key -out host2.csr
+openssl x509 -req -in host2.csr -CA self-signed-ca-cert.crt -CAkey private-ca.key -CAcreateserial -out ./host2/localhost.crt -days 365 -sha256 -extfile host2.txt
+
+# Create host3 key
+mkdir host3
+openssl genpkey -algorithm RSA -out ./host3/localhost.key -outform PEM -pkeyopt rsa_keygen_bits:2048
+openssl req -new -key ./host3/localhost.key -out host3.csr
+openssl x509 -req -in host3.csr -CA self-signed-ca-cert.crt -CAkey private-ca.key -CAcreateserial -out ./host3/localhost.crt -days 365 -sha256 -extfile host3.txt
+```
+
+Lastly, upload the `host1` directory to your host1 server (and similar for the other hosts). This should become the `certs` folder used in the compose file.
+
+## Integrate service
+
+On every host, create a `.env` file with all the variables from the compose file. Do `docker compose up -d` and everything should be up and running.
+
+Please note that with this setup there will be one patroni (and thus service) host that can write and read, and the others can ONLY read (this is not a load balancing setup). Therefore, create a bash script on each host that will simply spin up/down the service depending on whether patroni is a master or not.
+
+If you are not using [ntfy](https://ntfy.sh/) feel free to remove it or replace it with a different notification system.
+
+<Code
+  lang="bash"
+  title="manage.sh"
+  mark={["10.0.0.","HOSTNAME"]}
+  code={`
+#!/bin/bash
+WORKDIR="~/docker/SERVICE"
+API_URL="http://10.0.0.1:8008"
+CANDIDATE_NAME="HOSTNAME1"
+SERVICES="SERVICE" # space separated if multiple
+PATRONI_SERVICE="patroni etcd"
+
+NTFY_TOKEN="XXX"
+NTFY_URL="https://ntfy.sh/mytopic"
+
+get_role() {
+    curl -s "$API_URL" | jq -r '.role'
+}
+
+services_running() {
+    docker compose ps -q $SERVICES | grep -q .
+}
+
+send_ntfy() {
+    curl -L \\
+      -H "Authorization: Bearer $NTFY_TOKEN" \\
+      -H "Title: Patroni on $CANDIDATE_NAME" \\
+      -d "$1" \\
+      $NTFY_URL
+}
+
+cd $WORKDIR
+ROLE=$(get_role)
+
+if [ "$ROLE" = "primary" ]; then
+    if !services_running; then
+
+      # Node is primary but service not started
+      send_ntfy "Node became primary, ensuring services are up..."
+      docker compose up -d $SERVICES
+    fi
+
+# If node is not primary (is replica)
+else
+    if services_running; then
+
+      # Node is replica but service is up
+      send_ntfy "Node became replica, ensuring services are down..."
+      docker compose down $SERVICES
+    fi
+fi
+  `}
+/>
+
+The last step is to run this script "very often", for example using `* * * * * ~/docker/SERVICE/manage.sh` in a cronjob (every minute) or using a systemd timer.
+
+Make sure to modify the script as needed, for example changing your reverse proxy or something else, depending on your use case :)
