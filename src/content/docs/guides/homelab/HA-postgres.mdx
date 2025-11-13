@@ -260,18 +260,24 @@ mkdir host1
 openssl genpkey -algorithm RSA -out ./host1/localhost.key -outform PEM -pkeyopt rsa_keygen_bits:2048
 openssl req -new -key ./host1/localhost.key -out host1.csr
 openssl x509 -req -in host1.csr -CA self-signed-ca-cert.crt -CAkey private-ca.key -CAcreateserial -out ./host1/localhost.crt -days 365 -sha256 -extfile host1.txt
+cp self-signed-ca-cert.crt host1
+sudo chmod o+r host1/*
 
 # Create host2 key
 mkdir host2
 openssl genpkey -algorithm RSA -out ./host2/localhost.key -outform PEM -pkeyopt rsa_keygen_bits:2048
 openssl req -new -key ./host2/localhost.key -out host2.csr
 openssl x509 -req -in host2.csr -CA self-signed-ca-cert.crt -CAkey private-ca.key -CAcreateserial -out ./host2/localhost.crt -days 365 -sha256 -extfile host2.txt
+cp self-signed-ca-cert.crt host2
+sudo chmod o+r host2/*
 
 # Create host3 key
 mkdir host3
 openssl genpkey -algorithm RSA -out ./host3/localhost.key -outform PEM -pkeyopt rsa_keygen_bits:2048
 openssl req -new -key ./host3/localhost.key -out host3.csr
 openssl x509 -req -in host3.csr -CA self-signed-ca-cert.crt -CAkey private-ca.key -CAcreateserial -out ./host3/localhost.crt -days 365 -sha256 -extfile host3.txt
+cp self-signed-ca-cert.crt host3
+sudo chmod o+r host3/*
 ```
 
 Lastly, upload the `host1` directory to your host1 server (and similar for the other hosts). This should become the `certs` folder used in the compose file.
@@ -279,6 +285,11 @@ Lastly, upload the `host1` directory to your host1 server (and similar for the o
 ## Integrate service
 
 On every host, create a `.env` file with all the variables from the compose file. Do `docker compose up -d` and everything should be up and running.
+
+After that, run the following command from ONE of the servers and replace "ETCD_PASSWORD" with your etcd password. This will create a user in etcd that allows patroni to communicate with it.
+```bash
+docker exec -it etcd etcdctl user add user --password "ETCD_PASSWORD" --interactive=false
+```
 
 Please note that with this setup there will be one patroni (and thus service) host that can write and read, and the others can ONLY read (this is not a load balancing setup). Therefore, create a bash script on each host that will simply spin up/down the service depending on whether patroni is a master or not.
 
@@ -341,3 +352,17 @@ fi
 The last step is to run this script "very often", for example using `* * * * * ~/docker/SERVICE/manage.sh` in a cronjob (every minute) or using a systemd timer.
 
 Make sure to modify the script as needed, for example changing your reverse proxy or something else, depending on your use case :)
+
+## Importing database
+
+To import your database, first set the server you want to import from as primary using the following command:
+```bash
+curl -s -X POST http://10.0.0.1:8008/failover -H "Content-Type: application/json" -d "{\"candidate\": \"HOSTNAME\", \"leader\": null, \"force\": true}" >/dev/null
+```
+
+After that you need to create the `user` database (or equivalent) using:
+```bash
+docker exec -it patroni psql -U user -d postgres -c 'CREATE DATABASE user'
+```
+
+And use `pg_restore` to restore your database
