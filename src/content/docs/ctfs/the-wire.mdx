@@ -1,0 +1,90 @@
+---
+title: The Wire
+---
+
+## Description
+While scanning for suspicious SSH servers, we stumbled upon a very... interesting server. There are some rumours that the user king has a particularly small "d" exponent. Can you uncover the server's secrets and come out a wiener?
+
+```
+ssh-rsa AAAAB3NzaC1yc2EAAAEAVaaeuylOGCptCmb6Exkoc5nnbbBAPAjaMlWhzD08zb8yBJ6XrlenlOeGJRnVS8Nouyb2LpXQLgarwjn7Z93XzOmdzf3xhf8FxdBN6mscMZOUitJuCUfjdwBLaLDP57yKU1x75C8bLhxWXOScxfw09kIePXig0tXnQA8pYLgWYJpwRi3PBWiT6mHgKeogEikKnprxCrfclhp+beqxw3LcT8EMv1NEuS9MkufaEneksNH3QlWUnbs7pKG5rrGBTvrNHVezFgTHV1uGz8FxS7TZxx2wtm/5Bed6j8fcy119x97DeS1EOqD9mYQGSIKfSsxFT583E/UFxe9hMvuxe1/MiwAAAQBYj4Y/ZinFKANe0TQm/Ar5cUpW3UrdG6pphRwghi8VGT5yRii6+QDE6xc0B9+BYlGc3hFev0I0gI88EHmiLW+QGwHGC+cRWILYCrehO26ktePGIP6eGQyj0/Cfrqtr/iMAEkg2VjJyaHewXbJIw0oGuJfmfBb9a2mW93ptx5a8yMl7K3UZs0I8jfkNJrmUucyoYLl8KTiM+Ykj/RhvMSk8PFytiJhXMOys2zDEZBi+jpwN4Gy1i85HWEcM9dS/Mw5V6T6hek+Zqpgb5pCmMGI8teGntksMH+zw5LcaLNK2Q8FktJCsFHK9srNVeaPzG2lckKjuUNnkJeV1g1JZfvi9
+```
+
+## Solution
+One of my favorite challenges this edition. Solved using https://cryptohack.gitbook.io/cryptobook/untitled/low-private-component-attacks/wieners-attack
+
+Wiener's attack is an attack on RSA that uses continued fractions to find the private exponent `d` when it's small. We know that when we pick the public exponent `e` to be a small number and calculate its inverse `d = e^-1 mod phi(n)`
+
+This attack is based on the following theorem:
+
+Let `n=pq`, with `q < p < 2q`. Let `d < 1/3 * n^(1/4)`. Given `n` and `e` with `ed = 1 mod phi(n)`, the attacker can efficiently recover `d`.
+
+All credits go to https://cryptohack.gitbook.io/cryptobook/untitled/low-private-component-attacks/wieners-attack, which also includes a more in-depth explanation.
+
+```py
+from Crypto.PublicKey import RSA
+from Crypto.Util.number import inverse, long_to_bytes
+from math import isqrt
+
+def continued_fraction(numerator, denominator):
+    cf = []
+    while denominator:
+        a = numerator // denominator
+        cf.append(a)
+        numerator, denominator = denominator, numerator - a * denominator
+    return cf
+
+def convergents(cf):
+    convs = []
+    for i in range(len(cf)):
+        num, den = 1, 0
+        for a in reversed(cf[:i+1]):
+            num, den = den + num * a, num
+        convs.append((num, den))
+    return convs
+
+def wiener_attack(e, n):
+    cf = continued_fraction(e, n)
+    for k, d in convergents(cf):
+        if k == 0 or (e*d - 1) % k != 0:
+            continue
+        phi = (e*d - 1) // k
+        a = 1
+        b = -(n - phi + 1)
+        c = n
+        disc = b*b - 4*a*c
+        if disc >= 0:
+            s = isqrt(disc)
+            if s*s == disc:
+                p = (-b + s) // 2
+                q = (-b - s) // 2
+                if p * q == n:
+                    print(f"[+] Recovered p: {p}\n[+] Recovered q: {q}")
+                    return d, p, q
+    return None
+
+if __name__ == '__main__':
+    # Load RSA public key from id_rsa.pub
+    with open("id_rsa.pub", "r") as f:
+        key = RSA.importKey(f.read())
+
+    n = key.n
+    e = key.e
+    print(f"Public modulus n = {n}")
+    print(f"Public exponent e = {e}")
+
+    # Attempt Wiener's attack
+    d, p, q = wiener_attack(e, n)
+
+    if d:
+        u = inverse(p, q)
+
+        print(n, e, d, p, q, u)
+
+        key = RSA.construct((n, e, d, p, q, u))
+
+        # Export in PEM format (for SSH)
+        private_key_pem = key.export_key()
+        print(private_key_pem.decode())
+    else:
+        print("[-] Wiener's attack failed. Private exponent is likely not small.")
+```

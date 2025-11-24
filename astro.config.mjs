@@ -14,6 +14,10 @@ export default defineConfig({
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/Robin-Sch' }],
 			sidebar: [
 				{
+					label: 'CTFs',
+					autogenerate: { directory: 'ctfs' },
+				},
+				{
 					label: 'Guides',
 					autogenerate: { directory: 'guides' },
 				},
@@ -22,7 +26,6 @@ export default defineConfig({
 					autogenerate: { directory: 'linux' },
 				},
 				{ slug: 'android' },
-				{ slug: 'ctf' },
 				{ slug: 'git' },
 			],
 		}),
