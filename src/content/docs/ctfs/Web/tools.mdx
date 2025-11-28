@@ -1,0 +1,19 @@
+---
+title: Tools
+---
+
+`Burp Suite` GUI tool to execute/modify HTTP requests
+`requests` (python) sending requests in any format
+`nikto` (https://github.com/sullo/nikto) for web server scanner
+`bbot` (https://github.com/blacklanternsecurity/bbot) for web server scanner
+
+### Finding hidden files/directories
+
+```bash
+docker run --rm hypnza/dirbuster -u https://website.com
+```
+
+Or with a [wordlist](https://github.com/xmendez/wfuzz/tree/master/wordlist):
+```bash
+docker run -v $(pwd)/wordlist:/wordlist/ -it ghcr.io/xmendez/wfuzz wfuzz -c -z file,/wordlist/list.txt --hc 404 https://website.com/FUZZ
+```

