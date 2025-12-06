@@ -5,6 +5,9 @@ title: nmap
 ## Finding generic OS details
 `nmap -O ip`
 
+## Finding all hosts in network
+`nmap -n 192.168.0.0/24`
+
 ## Scripts
 ```bash
 sudo updatedb
@@ -17,4 +20,5 @@ nmap --script <path to script> <target> # run script
 `nmap -sT ip` simple TCP scan
 `nmap -sU ip` simple UDP scan
 `nmap --top-ports 1000 ip` scan top used ports
+`nmap -sV -p-` scan for all tcp ports and detect service
 `nmap -n -PN -sT -sU -p- ip` scan for all tcp and udp ports
