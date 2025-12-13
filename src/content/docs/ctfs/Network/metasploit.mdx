@@ -1,0 +1,34 @@
+---
+title: MetaSploit
+---
+
+```bash
+sudo msfconsole
+msf> nmap -A ip # run nmap from within metasploit
+msf> seach # find available exploits
+```
+
+```bash
+msf> use <path_to_exploit> # select exploit to use
+msf> show options # show available parameters
+msf> set <parameter> <value> # set parameter (see above)
+msf> show payloads # look at payloads available
+```
+
+## Searchsploit
+
+Similar to metasploit but contains far more exploits (uses populair ExploitDB)
+
+```bash
+searchsploit <keywords>
+```
+
+## Armitage
+
+Basically GUI for Metaspoloit
+
+```bash
+sudo -E armitage
+```
+
+At the top bar, Hosts > Nmap Scan > Quick Scan and then when done Attacks > Find Attacks (automatically finds attacks that are possible)

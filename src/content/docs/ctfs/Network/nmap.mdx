@@ -19,6 +19,6 @@ nmap --script <path to script> <target> # run script
 ## Other
 `nmap -sT ip` simple TCP scan
 `nmap -sU ip` simple UDP scan
-`nmap --top-ports 1000 ip` scan top used ports
-`nmap -sV -p-` scan for all tcp ports and detect service
+`nmap -sV -p- ip` scan for all tcp ports and detect service
+`nmap -p- --script=banner ip` scan for all tcp ports and detect service
 `nmap -n -PN -sT -sU -p- ip` scan for all tcp and udp ports
