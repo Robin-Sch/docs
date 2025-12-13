@@ -1,0 +1,13 @@
+---
+title: Day 5: IDOR
+---
+
+IDOR: Insecure Direct Object Reference is a type of access control vulnerability.
+
+For example, imagine a link like https://awesome.website.thm/TrackPackage?packageID=1001, what if you change the packageID to 11 or 12? If the server does not perform the correct authorization checks, then you might be able to see packages (and addresses) from others!
+
+Sometimes a base64 encoded version of a hash is used instead of the number directly. Or simply a different ID.
+
+For hashes, you can use a tool like [https://hashes.com/en/tools/hash_identifier](hash identifier) to identify what type of hash is used.
+
+For UUIDs, you can use a tool like [https://www.uuidtools.com/decode](uuid decoder) to identify what version of UUID is used.

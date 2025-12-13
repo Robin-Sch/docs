@@ -1,0 +1,13 @@
+---
+title: 6: Malware Analysis
+---
+
+Static Analysis: inspecting a file without executing it
+Dynamic Analysis: involves exeuction
+
+We will use PeStudio to (statically) analyse a `.exe`. For example, to get the sha256sum or get strings (similar to the strings command).
+
+We will use Regshot to (dynamically) analyse a `.exe`. It works by creating a snapshot of the registry before executing and after execution, after which they can be compared to see what the application did.
+
+We will use Process Monitor (ProcMon) to analyse what processes are running. After opening ProcMon and running the application, we can go to Filter and Fillter on process name. This still leaves a lot of results, so we can also filter on Operation contains TCP to see network activity.
+
