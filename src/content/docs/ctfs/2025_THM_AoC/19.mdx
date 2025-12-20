@@ -1,0 +1,45 @@
+---
+title: Day 19: ICS/Modbus - Claus for Concern
+---
+
+## SCADA
+
+Four key components:
+1. Sensors and actuators: eyes and hands of the system
+2. PLCs: brains
+3. Monitoring systems: visual interfaces such as CCTV cams, dashboards and alarm panels
+4. Historians: databases that store operational data
+
+- Often run legacy software with known vulnerabilities. They were installed decades ago and never updated
+- Default credentials are commonly left unchanged
+- Designed for reliability, not security
+- Controls important (physical) processes such as water supply
+- Connectd to corporate networks
+- Modbus protocol (often used) lacks authentication
+
+## PLC
+
+Designed to:
+- Survive harsh environments
+- Run continuously without failure
+- Execute control logic in real-time
+- Interface directly with physical hardware
+
+## Modbus Protocol
+
+Communication protocol that industrial devices use to talk to each other.
+
+Very simple, can directly read/write from registers, which makes it easy to implement and debug. However, there is no authentication/authorization and no encryption. Anyone who can reach the Modbus port can read/write any value.
+
+It has 4 distinct data types:
+- Coils, digital outputs (0 or 1)
+- Discrete inputs, digital inputs (0 or 1)
+- Holding registers, analogue outputs (0-65535)
+- Input registers, analogue inputs (0-65535)
+
+The difference between input and output is important. Outputs are writable, changing their values means controlling the system. The inputs are read-only and reflect sensor measurements.
+
+Each data point has an unique address.
+
+## Attacking
+

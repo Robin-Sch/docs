@@ -22,3 +22,5 @@ nmap --script <path to script> <target> # run script
 `nmap -sV -p- ip` scan for all tcp ports and detect service
 `nmap -p- --script=banner ip` scan for all tcp ports and detect service
 `nmap -n -PN -sT -sU -p- ip` scan for all tcp and udp ports
+
+Use `-T4` (aggresive) for faster scanning, but more likely to be detected.
